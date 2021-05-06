@@ -1,0 +1,393 @@
+# Frontiers in Cellular Neuroscience 
+# MacDonald et a., 2021
+
+
+set.seed(123456789)
+library(Seurat)
+
+# Load in mouse neonatal dataset
+sample.raw <- read.table(file =  "../GSE123335_P0_combined_matrix.txt.gz", header = TRUE, row.names = 1, sep = "\t", as.is = TRUE)
+p0mouse <- CreateSeuratObject(counts = sample.raw, project = "mousep0", min.cells = 3, min.features = 200)
+p0mouse[["percent.mt"]] <- PercentageFeatureSet(p0mouse, pattern = "^mt-")
+p0mouse <- subset(p0mouse, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+p0mouse <- NormalizeData(p0mouse, normalization.method = "LogNormalize", scale.factor = 1000)
+p0mouse <- FindVariableFeatures(p0mouse, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(p0mouse)
+p0mouse <- ScaleData(p0mouse, features = all.genes1)
+p0mouse <- RunPCA(p0mouse, features = VariableFeatures(object = p0mouse))
+p0mouse <- RunUMAP(p0mouse, dims = 1:10)
+p0mouse <- FindNeighbors(p0mouse, dims = 1:10)
+p0mouse <- FindClusters(p0mouse, resolution = 0.5)
+p0mouse <- RunUMAP(p0mouse, dims = 1:10)
+p0 <- p0mouse
+p0 <- FindClusters(p0, resolution = 0.6)
+p0 <- RunUMAP(p0, dims = 1:10)
+new.cluster.ids.p0 <- c("Neuronal", "Neuronal", "Radial glia", "Neuronal", "Neuronal", "Neuronal", "Neuronal",
+                        "Neuronal", "Neuronal", "Oligodendroglia", "Neuronal", "Endothelial", "Undef.", "Microglia", "Neuronal", "Ependymal")
+names(new.cluster.ids.p0) <- levels(p0)
+p0 <- RenameIdents(p0, new.cluster.ids.p0)
+DimPlot(p0)
+my_levels2 <- c("Ependymal", "Radial glia", "Neuronal", "Microglia", "Oligodendroglia", "Endothelial", "Undef.")
+Idents(p0) <- factor(Idents(p0), levels = my_levels2)
+
+DimPlot(p0, cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3")) # Figure 1A left panel
+ 
+a <- VlnPlot(p0, features = "Foxj1", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+b <- VlnPlot(p0, features = "Pifo", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+c <- VlnPlot(p0, features = "Dynlrb2", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+a + b + c # Figure 1A right panel
+
+#save(p0, file = "../p0G.Robj")
+#load(file = "../p0G.Robj") 
+
+
+# Load in mouse adult dataset from Shah 2018
+brain.data<-Read10X(data.dir = "../BrainV2/")
+brain <- CreateSeuratObject(counts = brain.data, project = "BRAIN", min.cells = 3, min.features = 200)
+brain[["percent.mt"]] <- PercentageFeatureSet(brain, pattern = "^mt-")
+brain <- subset(brain, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10) # To account for higher dataset reads and average %mt
+brain <- NormalizeData(brain, normalization.method = "LogNormalize", scale.factor = 1000)
+brain <- FindVariableFeatures(brain, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(brain)
+brain <- ScaleData(brain, features = all.genes1)
+brain <- RunPCA(brain, features = VariableFeatures(object = brain))
+brain <- RunUMAP(brain, dims = 1:10)
+brain <- FindNeighbors(brain, dims = 1:10)
+brain <- FindClusters(brain, resolution = 2)
+brain <- RunUMAP(brain, dims = 1:10)
+DimPlot(brain, cols = "polychrome")
+FeaturePlot(brain, features = "Foxj1")
+new.cluster.ids.brain <- c("Neuronal", "Neuronal", "Ependymal", "Neuronal", "Neuronal", "Astrocyte","Neuronal", "Neuronal",
+                           "Astrocyte", "Astrocyte", "Undef.", "Neuronal", "Neuronal", "Microglia", "Oligodendroglia", "Undef.")
+names(new.cluster.ids.brain) <- levels(brain)
+brain <- RenameIdents(brain, new.cluster.ids.brain)
+brain3 <- brain
+my_levels2 <- c("Ependymal", "Neuronal", "Astrocyte", "Microglia", "Oligodendroglia", "Undef.")
+Idents(brain3) <- factor(Idents(brain3), levels = my_levels2)
+DimPlot(brain3, cols= c("orange", "royalblue1", "springgreen3", "sienna1", "slateblue", "maroon1")) # Figure 1B, left panel
+
+a <- VlnPlot(brain3, features = "Foxj1", cols= c("orange", "royalblue1", "springgreen3", "sienna1", "slateblue", "maroon1"))      
+b <- VlnPlot(brain3, features = "Pifo", cols= c("orange", "royalblue1", "springgreen3", "sienna1", "slateblue", "maroon1"))      
+c <- VlnPlot(brain3, features = "Dynlrb2", cols= c("orange", "royalblue1", "springgreen3", "sienna1", "slateblue", "maroon1"))      
+a + b + c # Figure 1A right panel
+
+#save(brain3, file = "../brain3G.Robj")
+#load(file = "../brain3G.Robj") 
+
+
+
+
+
+# Select fetal cell clusters that are Gfap- and Foxj1-positive for pseudotime analysis
+# Gfap for radial glia (ependymal precursors) and Foxj1 for mature/maturing ependymal cells
+FeaturePlot(p0mouse, features = c("Foxj1", "Gfap"))
+DimPlot(p0mouse)
+
+traj <- subset(p0mouse, idents =  c("4"))
+traj <- NormalizeData(traj, normalization.method = "LogNormalize", scale.factor = 1000)
+traj <- FindVariableFeatures(traj, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(traj)
+traj <- ScaleData(traj, features = all.genes1)
+traj <- RunPCA(traj, features = VariableFeatures(object = traj))
+traj <- RunUMAP(traj, dims = 1:10)
+traj <- FindNeighbors(traj, dims = 1:10)
+traj <- FindClusters(traj, resolution = 0.5) 
+traj <- RunUMAP(traj, dims = 1:10)
+FeaturePlot(traj, features = c("Foxj1", "Gfap", "Ptprz1"))
+DimPlot(traj)
+FeaturePlot(traj, features = "Foxj1")
+ids <- c("Keep", "Keep", "Keep", "disc", "Keep", "disc") # New; very close.
+names(ids) <- levels(traj)
+traj <- RenameIdents(traj, ids)
+DimPlot(traj, reduction = "umap") # We will discard the Gfap/Foxj1-negative clusters
+traj2 <- subset(traj, idents =  "Keep")
+DimPlot(traj2)
+FeaturePlot(traj2, features = c("Gfap", "Foxj1", "Aldh1l1", "Ptprz1", "Olig2"))
+
+traj2 <- NormalizeData(traj2, normalization.method = "LogNormalize", scale.factor = 1000)
+traj2 <- FindVariableFeatures(traj2, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(traj2)
+traj2 <- ScaleData(traj2, features = all.genes1)
+traj2 <- RunPCA(traj2, features = VariableFeatures(object = traj2))
+traj2 <- RunUMAP(traj2, dims = 1:10)
+traj2 <- FindNeighbors(traj2, dims = 1:10)
+traj2 <- FindClusters(traj2, resolution = 0.5) 
+traj2 <- RunUMAP(traj2, dims = 1:10)
+DimPlot(traj2)
+
+ids <- c("Keep", "Keep", "Keep", "Keep", "disc") # Get rid of remaining GFAP/Foxj1-negative cluster
+names(ids) <- levels(traj2)
+traj2 <- RenameIdents(traj2, ids)
+traj3 <- subset(traj2, idents =  "Keep")
+DimPlot(traj3)
+
+# Load in required packages
+library(Matrix)
+library(slingshot)
+library(SingleCellExperiment)
+library(uwot)
+library(data.table)
+library(mclust)
+library(RColorBrewer)
+library(scater)
+library(tradeSeq)
+# Begin pseudotime analysis using Slingshot package
+sim <- as.SingleCellExperiment(traj3)
+# Gene filter
+geneFilter <- apply(assays(sim)$counts,1,function(x) { sum(x >= 3) >= 10})
+sim <- sim[geneFilter, ]
+# Normalization
+FQnorm <- function(counts){
+  rk <- apply(counts,2,rank,ties.method='min')
+  counts.sort <- apply(counts,2,sort)
+  refdist <- apply(counts.sort,1,median)
+  norm <- apply(rk,2,function(r){ refdist[r] })
+  rownames(norm) <- rownames(counts)
+  return(norm)
+}
+assays(sim)$norm <- FQnorm(assays(sim)$counts)
+# Dimensionality reduction
+pca <- prcomp(t(log1p(assays(sim)$norm)), scale. = FALSE)
+rd1 <- pca$x[,1:2]
+plot(rd1, col = rgb(0,0,0,.5), pch=16, asp = 1)
+reducedDims(sim) <- SimpleList(PCA = rd1)
+tmpSim <- sim
+tmpSim <- logNormCounts(tmpSim)
+# Clustering cells
+cl1 <- Mclust(rd1)$classification
+colData(sim)$GMM <- cl1
+plot(rd1, col = brewer.pal(9,"Set1")[cl1], pch=16, asp = 1)
+cl1$classification
+# trajectory
+DimPlot(sim)
+sim <- slingshot(sim, reducedDim = 'PCA', start.clus = 1)
+colors <- colorRampPalette(brewer.pal(11,'Spectral')[-6])(100)
+plotcol <- colors[cut(sim$slingPseudotime_1, breaks=100)]
+plot(reducedDims(sim)$PCA, col = plotcol, pch=16, asp = 1)
+lines(SlingshotDataSet(sim), lwd=2, col='black') # Figure 1C
+#plotUMAP(sim)
+# Diff. expressed genes over pseudotime
+sim <- fitGAM(sim)
+# test for dynamic expression
+ATres <- associationTest(sim)
+# topgenes
+topgenes <- rownames(ATres[with(ATres, order(-waldStat, -meanLogFC)), ])[1:50]
+write.table(ATres[with(ATres, order(-waldStat, -meanLogFC)), ],"dge_results.tsv",quote=F,row.names=T,col.names=NA,sep="\t")
+pst.ord <- order(sim$slingPseudotime_1, na.last = NA)
+heatdata <- assays(sim)$counts[topgenes, pst.ord]
+heatclus <- sim$GMM[pst.ord]
+print(heatmap(log1p(as.matrix(heatdata)), Colv = NA, ColSideColors = brewer.pal(9,"Set1")[heatclus],cexRow=0.8)) # Figure 1D
+
+# Now validate with mature profile with adult ependymal cells
+FeaturePlot(brain, features = "Foxj1")
+DimPlot(brain)
+Foxj1Brain <- subset(brain3, idents = "Ependymal")
+DoHeatmap(Foxj1Brain, features = c("Aqp4", "Phyhipl", "Serpine2", "Trim9", "Fabp5", "Slc4a4", "Id2", "Id1", "Gm3764", "Ccnd2",
+                                   "Ncan", "Bcan", "Id3",
+                                   "Lrrc23", "Meig1", "Fam183b", "Odf3b", "Rsph1", "Pltp", "1700009P17Rik", "Tmem107", "Tppp3", "Dynlrb2",
+                                   "Foxj1", "Chchd10", "Elof1", "Nudc", "Hsp90aa1"), label = FALSE) # Figure 1E
+
+
+# Introduce spinal cord dataset
+SRS89 <- read.table(file = "../SRA667466_SRS3059989.mat.gz", sep = "\t")
+rownames(SRS89)=make.unique(sapply(strsplit(rownames(SRS89), "_", fixed = TRUE), function(i) paste(head(i, -1), collapse = "_")))
+SRS90 <- read.table(file = "../SRA667466_SRS3059990.mat.gz", sep = "\t")
+rownames(SRS90)=make.unique(sapply(strsplit(rownames(SRS90), "_", fixed = TRUE), function(i) paste(head(i, -1), collapse = "_")))
+SRS91 <- read.table(file = "../SRA667466_SRS3059991.mat.gz", sep = "\t")
+rownames(SRS91)=make.unique(sapply(strsplit(rownames(SRS91), "_", fixed = TRUE), function(i) paste(head(i, -1), collapse = "_")))
+spine2 <- CreateSeuratObject(counts = SRS89, project = "spine", min.cells = 3, min.features = 200)
+spine3 <- CreateSeuratObject(counts = SRS90, project = "spine", min.cells = 3, min.features = 200)
+spine4 <- CreateSeuratObject(counts = SRS91, project = "spine", min.cells = 3, min.features = 200)
+spine23 <- merge(spine2, y = spine3, add.cell.ids = c("", ""), project = "mousespine")
+spineall <- merge(spine23, y = spine4, add.cell.ids = c("", ""), project = "mousespine")
+
+#save(spineall, file = "../spineunfiltered.Robj")
+#load(file = "../spineunfiltered.Robj") #Unfiltered
+
+spineall[["percent.mt"]] <- PercentageFeatureSet(spineall, pattern = "^mt-")
+spineall <- subset(spineall, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+spineall <- NormalizeData(spineall, normalization.method = "LogNormalize", scale.factor = 1000)
+spineall <- FindVariableFeatures(spineall, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(spineall)
+spineall <- ScaleData(spineall, features = all.genes1)
+spineall <- RunPCA(spineall, features = VariableFeatures(object = spineall))
+spineall <- RunUMAP(spineall, dims = 1:10)
+DimPlot(spineall)
+FeaturePlot(spineall, features = "Foxj1")
+spineall <- FindNeighbors(spineall, dims = 1:10)
+spineall <- FindClusters(spineall, resolution = 0.2)
+spineall <- RunUMAP(spineall, dims = 1:10)
+DimPlot(spineall, reduction = "umap")
+
+
+ids <- c("Oligodendroglia", "Oligodendroglia", "Endothelial", "Oligodendroglia", "Astrocyte", "Microglia", "Neuronal", "Oligodendroglia", "Oligodendroglia", "Ependymal", "Oligodendroglia", "Undef.")
+names(ids) <- levels(spineall)
+spineall <- RenameIdents(spineall, ids)
+DimPlot(spineall, reduction = "umap")
+FeaturePlot(spineall, features = "Foxj1")
+my_levels2 <- c("Ependymal", "Neuronal", "Astrocyte", "Microglia", "Oligodendroglia", "Endothelial", "Undef.")
+Idents(spineall) <- factor(Idents(spineall), levels = my_levels2)
+
+DimPlot(spineall, cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3")) # Figure 4A upper panel
+
+a <- VlnPlot(spineall, features = "Foxj1", cols= c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+b <- VlnPlot(spineall, features = "Pifo", cols= c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+c <- VlnPlot(spineall, features = "Dynlrb2", cols= c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+a + b + c # Figure 4A lower panel
+
+#save(spineall, file = "../spineallG.Robj")
+load(file = "../spineallG.Robj") 
+
+
+
+SVZ350.data<-Read10X(data.dir = "../SVZ350/")
+SVZ350 <- CreateSeuratObject(counts = SVZ350.data, project = "BRAIN", min.cells = 3, min.features = 200)
+SVZ395.data<-Read10X(data.dir = "../SVZ395/")
+SVZ395 <- CreateSeuratObject(counts = SVZ395.data, project = "BRAIN", min.cells = 3, min.features = 200)
+SVZ350 <- NormalizeData(SVZ350, normalization.method = "LogNormalize", scale.factor = 1000)
+SVZ350 <- FindVariableFeatures(SVZ350, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(SVZ350)
+SVZ350 <- ScaleData(SVZ350, features = all.genes1)
+SVZ350 <- RunPCA(SVZ350, features = VariableFeatures(object = SVZ350))
+SVZ350 <- RunUMAP(SVZ350, dims = 1:10)
+DimPlot(SVZ350, reduction = "umap") 
+SVZ350FOXJ1 <- FeaturePlot(SVZ350, features = "FOXJ1")
+SVZ395 <- NormalizeData(SVZ395, normalization.method = "LogNormalize", scale.factor = 1000)
+SVZ395 <- FindVariableFeatures(SVZ395, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(SVZ395)
+SVZ395 <- ScaleData(SVZ395, features = all.genes1)
+SVZ395 <- RunPCA(SVZ395, features = VariableFeatures(object = SVZ395))
+SVZ395 <- RunUMAP(SVZ395, dims = 1:10)
+DimPlot(SVZ395, reduction = "umap") 
+
+mergedfigure <- merge(SVZ350, y = SVZ395, add.cell.ids = c("SVZ350", "SVZ395"), project = "SVZ")
+mergedfigure[["percent.mt"]] <- PercentageFeatureSet(mergedfigure, pattern = "^MT-")
+mergedfigure <- subset(mergedfigure, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10)
+mergedfigure <- NormalizeData(mergedfigure, normalization.method = "LogNormalize", scale.factor = 1000)
+mergedfigure <- FindVariableFeatures(mergedfigure, selection.method = "vst", nfeatures = 2000)
+all.genes1 <- rownames(mergedfigure)
+mergedfigure <- ScaleData(mergedfigure, features = all.genes1)
+mergedfigure <- RunPCA(mergedfigure, features = VariableFeatures(object = mergedfigure))
+mergedfigure <- RunUMAP(mergedfigure, dims = 1:10)
+DimPlot(mergedfigure, ident = "orig.ident") 
+
+
+mergedfigure <- FindNeighbors(mergedfigure, dims = 1:10)
+mergedfigure <- FindClusters(mergedfigure, resolution = 0.6)
+mergedfigure <- RunUMAP(mergedfigure, dims = 1:10)
+
+
+
+
+#ids <- c("Microglia", "Microglia", "Oligodendroglia", "Oligodendroglia", "Oligodendroglia", "Undef.", "Astrocyte", "Ependymal", "Endothelial", "T cell")
+ids <- c("Microglia", "Oligodendroglia", "Microglia", "Microglia", "Oligodendroglia", "Undef.", "Astrocyte", "T cell", "Ependymal")
+names(ids) <- levels(mergedfigure)
+mergedfigure <- RenameIdents(mergedfigure, ids)
+my_levels2 <- c("Ependymal", "Astrocyte", "Oligodendroglia", "Microglia", "T cell", "Undef.")
+Idents(mergedfigure) <- factor(Idents(mergedfigure), levels = my_levels2)
+DimPlot(mergedfigure, cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3")) # Figure 3C upper panel
+
+a <- VlnPlot(mergedfigure, features = "FOXJ1", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+b <- VlnPlot(mergedfigure, features = "PIFO", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+c <- VlnPlot(mergedfigure, features = "DYNLRB2", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+a + b + c # Figure 3C lower panel
+
+#save(mergedfigure, file = "../HsMBG.Robj")
+load(file = "../HsMBG.Robj") 
+
+# Time for GO-terms
+library(rlang)
+library(ggplot2)
+library(clusterProfiler)
+library(BiocManager)
+library(stats)
+suppressPackageStartupMessages(library(clusterProfiler))
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(org.Hs.eg.db)
+library(DOSE)
+
+
+mmmb <- FindMarkers(brain3, ident.1 = "Ependymal", always.pos = TRUE)
+SigUPgenes <- rownames(mmmb)
+SigUPgenes <- SigUPgenes[1:200]
+Up <- enrichGO(SigUPgenes, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
+cluster_summary <- data.frame(Up)
+dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
+        split = NULL, font.size = 10, title = "") # Figure 3B
+# Mm p0
+p0b <- FindMarkers(p0, ident.1 = "Ependymal", always.pos = TRUE)
+SigUPgenes <- rownames(p0b)
+SigUPgenes <- SigUPgenes[1:200]
+Up <- enrichGO(SigUPgenes, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
+cluster_summary <- data.frame(Up)
+dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
+        split = NULL, font.size = 10, title = "") # Figure 3A
+# Mm SC
+SCgo <- FindMarkers(spineall, ident.1 = "Ependymal", always.pos = TRUE)
+SigUPgenes <- rownames(SCgo)
+SigUPgenes <- SigUPgenes[1:200]
+Up <- enrichGO(SigUPgenes, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
+cluster_summary <- data.frame(Up)
+dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
+        split = NULL, font.size = 10, title = "") # Figure 4B
+# Hs MB
+HsMB <- FindMarkers(mergedfigure, ident.1 = "Ependymal", always.pos = TRUE)
+SigUPgenes <- rownames(HsMB)
+SigUPgenes <- SigUPgenes[1:200]
+Up <- enrichGO(SigUPgenes, OrgDb = "org.Hs.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
+head(Up)
+cluster_summary <- data.frame(Up)
+dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
+        split = NULL, font.size = 10, title = "") # Figure 3D
+
+
+
+# Integrating all Mm ependymal cells for direct comparison
+new.cluster.ids.brainp <- c("p0 ependymal", "Radial glia", "Neuronal", "Microglia", "Oligodendroglia", "Endothelial", "Undef.")
+names(new.cluster.ids.brainp) <- levels(p0)
+p0 <- RenameIdents(p0, new.cluster.ids.brainp)
+new.cluster.ids.brain <- c("MB ependymal", "Neuronal", "Astrocyte", "Microglia", "Oligodendroglia", "Undef.")
+names(new.cluster.ids.brain) <- levels(brain3)
+brain3 <- RenameIdents(brain3, new.cluster.ids.brain)
+new.cluster.ids.SC <- c("SC ependymal", "Neuronal", "Astrocyte", "Microglia", "Oligodendroglia", "Endothelial", "Undef.")
+names(new.cluster.ids.SC) <- levels(spineall)
+spineall <- RenameIdents(spineall, new.cluster.ids.SC)
+MBEC <- subset(brain3, idents = "MB ependymal")
+p0EC <- subset(p0, idents = "p0 ependymal")
+SCEC <- subset(spineall, idents = "SC ependymal")
+
+semimerge <- merge(MBEC, y = p0EC, add.cell.ids = c("", ""), project = "mousespine")
+EC <- merge(semimerge, y = SCEC, add.cell.ids = c("", ""), project = "mousespine")
+library(sctransform)
+EC <- SCTransform(EC, vars.to.regress = "percent.mt", verbose = FALSE)
+EC <- RunPCA(EC, features = VariableFeatures(object = EC))
+EC <- RunUMAP(EC, dims = 1:10)
+DimPlot(EC)
+
+my_levels2 <- c("p0 ependymal", "MB ependymal", "SC ependymal")
+Idents(EC) <- factor(Idents(EC), levels = my_levels2)
+
+
+n = 10 # Max genes of each category to include
+Upinp0 <- FindMarkers(EC, ident.1 = c("p0 ependymal"), ident.2 = c("SC ependymal", "MB ependymal"), min.pct = 0.25, only.pos = TRUE)
+UpinMB <- FindMarkers(EC, ident.1 = c("MB ependymal"), ident.2 = c("SC ependymal", "p0 ependymal"), min.pct = 0.25, only.pos = TRUE)
+UpinSC <- FindMarkers(EC, ident.1 = c("SC ependymal"), ident.2 = c("MB ependymal", "p0 ependymal"), min.pct = 0.25, only.pos = TRUE)
+Dinp0 <- FindMarkers(EC, ident.1 = c("SC ependymal", "MB ependymal"), ident.2 = c("p0 ependymal"), min.pct = 0.25, only.pos = TRUE)
+DinMB <- FindMarkers(EC, ident.1 = c("SC ependymal", "p0 ependymal"), ident.2 = c("MB ependymal"), min.pct = 0.25, only.pos = TRUE)
+DinSC <- FindMarkers(EC, ident.1 = c("MB ependymal", "p0 ependymal"), ident.2 = c("SC ependymal"), min.pct = 0.25, only.pos = TRUE)
+Upinp0 <- rownames(Upinp0)
+Upinp0 <- Upinp0[1:n]
+UpinMB <- rownames(UpinMB)
+UpinMB <- UpinMB[1:n]
+UpinSC <- rownames(UpinSC)
+UpinSC <- UpinSC[1:n]
+########################### Many genes ahead not included in SCT assay so "n" is manually adjusted to get 10genes/category
+Dinp0 <- rownames(Dinp0)
+Dinp0 <- Dinp0[1:53]
+DinMB <- rownames(DinMB)
+DinMB <- DinMB[1:20] 
+DinSC <- rownames(DinSC)
+DinSC <- DinSC[1:16]
+Test <- c(Upinp0, UpinMB, UpinSC, Dinp0, DinMB, DinSC)
+DoHeatmap(EC, features = Test) # Figure 5A
