@@ -1,5 +1,5 @@
 # Frontiers in Cellular Neuroscience 
-# MacDonald et a., 2021
+# MacDonald et al., 2021
 
 
 set.seed(123456789)
@@ -31,13 +31,13 @@ my_levels2 <- c("Ependymal", "Radial glia", "Neuronal", "Microglia", "Oligodendr
 Idents(p0) <- factor(Idents(p0), levels = my_levels2)
 
 DimPlot(p0, cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3")) # Figure 1A left panel
- 
+
 a <- VlnPlot(p0, features = "Foxj1", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
 b <- VlnPlot(p0, features = "Pifo", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
 c <- VlnPlot(p0, features = "Dynlrb2", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
 a + b + c # Figure 1A right panel
 
-#save(p0, file = "../p0G.Robj")
+#save(p0, file = "../p0G.Robj") # Objects are saved throughout the workflow to facilitate revisiting cells/code
 #load(file = "../p0G.Robj") 
 
 
@@ -73,9 +73,6 @@ a + b + c # Figure 1A right panel
 
 #save(brain3, file = "../brain3G.Robj")
 #load(file = "../brain3G.Robj") 
-
-
-
 
 
 # Select fetal cell clusters that are Gfap- and Foxj1-positive for pseudotime analysis
@@ -238,62 +235,45 @@ a + b + c # Figure 4A lower panel
 #save(spineall, file = "../spineallG.Robj")
 load(file = "../spineallG.Robj") 
 
-
-
 SVZ350.data<-Read10X(data.dir = "../SVZ350/")
 SVZ350 <- CreateSeuratObject(counts = SVZ350.data, project = "BRAIN", min.cells = 3, min.features = 200)
 SVZ395.data<-Read10X(data.dir = "../SVZ395/")
 SVZ395 <- CreateSeuratObject(counts = SVZ395.data, project = "BRAIN", min.cells = 3, min.features = 200)
-SVZ350 <- NormalizeData(SVZ350, normalization.method = "LogNormalize", scale.factor = 1000)
-SVZ350 <- FindVariableFeatures(SVZ350, selection.method = "vst", nfeatures = 2000)
-all.genes1 <- rownames(SVZ350)
-SVZ350 <- ScaleData(SVZ350, features = all.genes1)
-SVZ350 <- RunPCA(SVZ350, features = VariableFeatures(object = SVZ350))
-SVZ350 <- RunUMAP(SVZ350, dims = 1:10)
-DimPlot(SVZ350, reduction = "umap") 
-SVZ350FOXJ1 <- FeaturePlot(SVZ350, features = "FOXJ1")
-SVZ395 <- NormalizeData(SVZ395, normalization.method = "LogNormalize", scale.factor = 1000)
-SVZ395 <- FindVariableFeatures(SVZ395, selection.method = "vst", nfeatures = 2000)
-all.genes1 <- rownames(SVZ395)
-SVZ395 <- ScaleData(SVZ395, features = all.genes1)
-SVZ395 <- RunPCA(SVZ395, features = VariableFeatures(object = SVZ395))
-SVZ395 <- RunUMAP(SVZ395, dims = 1:10)
-DimPlot(SVZ395, reduction = "umap") 
+SVZ373.data<-Read10X(data.dir = "../SVZ373/")
+SVZ373 <- CreateSeuratObject(counts = SVZ373.data, project = "BRAIN", min.cells = 3, min.features = 200)
+SVZ376.data<-Read10X(data.dir = "../SVZ376/")
+SVZ376 <- CreateSeuratObject(counts = SVZ376.data, project = "BRAIN", min.cells = 3, min.features = 200)
+SVZ444.data<-Read10X(data.dir = "../SVZ444/")
+SVZ444 <- CreateSeuratObject(counts = SVZ444.data, project = "BRAIN", min.cells = 3, min.features = 200)
+svz <- merge(SVZ350, y = c(SVZ395, SVZ373, SVZ376, SVZ444), project = "SVZ")
+svz[["percent.mt"]] <- PercentageFeatureSet(svz, pattern = "^MT-")
+svz <- subset(svz, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10)
+svz <- SCTransform(svz, vars.to.regress = "percent.mt", verbose = FALSE)
+svz <- RunPCA(svz, verbose = FALSE)
+svz <- RunUMAP(svz, dims = 1:30, verbose = FALSE)
+DimPlot(svz)
+FeaturePlot(svz, features = "FOXJ1")
+svz <- FindNeighbors(svz, dims = 1:10)
+svz <- FindClusters(svz, resolution = 0.2)
+svz <- RunUMAP(svz, dims = 1:10)
+DimPlot(svz, reduction = "umap", cols = "polychrome")
+FeaturePlot(svz, features = "MOG")
 
-mergedfigure <- merge(SVZ350, y = SVZ395, add.cell.ids = c("SVZ350", "SVZ395"), project = "SVZ")
-mergedfigure[["percent.mt"]] <- PercentageFeatureSet(mergedfigure, pattern = "^MT-")
-mergedfigure <- subset(mergedfigure, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10)
-mergedfigure <- NormalizeData(mergedfigure, normalization.method = "LogNormalize", scale.factor = 1000)
-mergedfigure <- FindVariableFeatures(mergedfigure, selection.method = "vst", nfeatures = 2000)
-all.genes1 <- rownames(mergedfigure)
-mergedfigure <- ScaleData(mergedfigure, features = all.genes1)
-mergedfigure <- RunPCA(mergedfigure, features = VariableFeatures(object = mergedfigure))
-mergedfigure <- RunUMAP(mergedfigure, dims = 1:10)
-DimPlot(mergedfigure, ident = "orig.ident") 
-
-
-mergedfigure <- FindNeighbors(mergedfigure, dims = 1:10)
-mergedfigure <- FindClusters(mergedfigure, resolution = 0.6)
-mergedfigure <- RunUMAP(mergedfigure, dims = 1:10)
-
-
-
-
-#ids <- c("Microglia", "Microglia", "Oligodendroglia", "Oligodendroglia", "Oligodendroglia", "Undef.", "Astrocyte", "Ependymal", "Endothelial", "T cell")
-ids <- c("Microglia", "Oligodendroglia", "Microglia", "Microglia", "Oligodendroglia", "Undef.", "Astrocyte", "T cell", "Ependymal")
-names(ids) <- levels(mergedfigure)
-mergedfigure <- RenameIdents(mergedfigure, ids)
+ids <- c("Oligodendroglia", "Microglia", "Microglia", "Oligodendroglia", "Oligodendroglia", "Microglia", "Microglia", "T cell", "Astrocyte", "Oligodendroglia", "Undef.", "Undef.", "Ependymal")
+names(ids) <- levels(svz)
+svz <- RenameIdents(svz, ids)
 my_levels2 <- c("Ependymal", "Astrocyte", "Oligodendroglia", "Microglia", "T cell", "Undef.")
-Idents(mergedfigure) <- factor(Idents(mergedfigure), levels = my_levels2)
-DimPlot(mergedfigure, cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3")) # Figure 3C upper panel
+Idents(svz) <- factor(Idents(svz), levels = my_levels2)
+DimPlot(svz, cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3")) # Figure 3C upper panel
 
-a <- VlnPlot(mergedfigure, features = "FOXJ1", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
-b <- VlnPlot(mergedfigure, features = "PIFO", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
-c <- VlnPlot(mergedfigure, features = "DYNLRB2", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+a <- VlnPlot(svz, features = "FOXJ1", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+b <- VlnPlot(svz, features = "PIFO", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
+c <- VlnPlot(svz, features = "DYNLRB2", cols = c("red", "blue", "springgreen4", "aquamarine3", "purple", "maroon", "tan3"))      
 a + b + c # Figure 3C lower panel
 
-#save(mergedfigure, file = "../HsMBG.Robj")
-load(file = "../HsMBG.Robj") 
+#save(svz, file = "../svzall.Robj")
+load(file = "../svzall.Robj") 
+
 
 # Time for GO-terms
 library(rlang)
@@ -307,40 +287,49 @@ library(org.Mm.eg.db)
 library(org.Hs.eg.db)
 library(DOSE)
 
-
+# Mm MB
 mmmb <- FindMarkers(brain3, ident.1 = "Ependymal", always.pos = TRUE)
 SigUPgenes <- rownames(mmmb)
 SigUPgenes <- SigUPgenes[1:200]
+write.table(mmmb, file = "../MMMB.csv", sep = ", ") # S1a
 Up <- enrichGO(SigUPgenes, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
 cluster_summary <- data.frame(Up)
 dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
         split = NULL, font.size = 10, title = "") # Figure 3B
+cnetplot(Up, showCategory = 30, foldChange = NULL) #Supp Fig.
 # Mm p0
 p0b <- FindMarkers(p0, ident.1 = "Ependymal", always.pos = TRUE)
 SigUPgenes <- rownames(p0b)
 SigUPgenes <- SigUPgenes[1:200]
+write.table(p0b, file = "../MMp0.csv", sep = ", ") # S1a
 Up <- enrichGO(SigUPgenes, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
 cluster_summary <- data.frame(Up)
 dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
         split = NULL, font.size = 10, title = "") # Figure 3A
+cnetplot(Up, showCategory = 30, foldChange = NULL) #Supp Fig.
 # Mm SC
 SCgo <- FindMarkers(spineall, ident.1 = "Ependymal", always.pos = TRUE)
 SigUPgenes <- rownames(SCgo)
 SigUPgenes <- SigUPgenes[1:200]
+write.table(SCgo, file = "../MMSC.csv", sep = ", ") # S1a
+
 Up <- enrichGO(SigUPgenes, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
 cluster_summary <- data.frame(Up)
 dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
         split = NULL, font.size = 10, title = "") # Figure 4B
+cnetplot(Up, showCategory = 30, foldChange = NULL) #Supp Fig.
 # Hs MB
-HsMB <- FindMarkers(mergedfigure, ident.1 = "Ependymal", always.pos = TRUE)
+HsMB <- FindMarkers(svz, ident.1 = "Ependymal", always.pos = TRUE)
 SigUPgenes <- rownames(HsMB)
 SigUPgenes <- SigUPgenes[1:200]
+write.table(HsMB, file = "../HSMB.csv", sep = ", ") # S1a
+
 Up <- enrichGO(SigUPgenes, OrgDb = "org.Hs.eg.db", keyType = "SYMBOL", ont="BP", pvalueCutoff = 0.05, pAdjustMethod="fdr", qvalueCutoff = 0.2, minGSSize = 2, maxGSSize = 500, readable = FALSE, pool = FALSE)
 head(Up)
 cluster_summary <- data.frame(Up)
 dotplot(Up, x = "qvalue", color = "p.adjust", showCategory = 30, size = NULL,
         split = NULL, font.size = 10, title = "") # Figure 3D
-
+cnetplot(Up, showCategory = 30, foldChange = NULL) #Supp Fig.
 
 
 # Integrating all Mm ependymal cells for direct comparison
@@ -382,7 +371,7 @@ UpinMB <- rownames(UpinMB)
 UpinMB <- UpinMB[1:n]
 UpinSC <- rownames(UpinSC)
 UpinSC <- UpinSC[1:n]
-########################### Many genes ahead not included in SCT assay so "n" is manually adjusted to get 10genes/category
+# Many genes ahead not included in SCT assay so "n" is manually adjusted to get exactly 10genes/category
 Dinp0 <- rownames(Dinp0)
 Dinp0 <- Dinp0[1:53]
 DinMB <- rownames(DinMB)
